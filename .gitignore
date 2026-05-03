@@ -1,9 +1,22 @@
+# Секреты
 .env
+.env.save
+.env.bak
+*.env.swp
+
+# Кэши и виртуалки
 venv/
 __pycache__/
 *.pyc
+*.pyo
+
+# Артефакты бота
 downloads/
+bot-api-data/
 *.log
 .DS_Store
 .idea/
 .vscode/
+
+# Дубль папки (если опять скопируется)
+bot_YouTube/
