@@ -1,0 +1,42 @@
+services:
+  # Local Bot API server. Поднимает лимит на отправку с 50 МБ до 2 ГБ.
+  # Использует публично известные credentials от Telegram Desktop —
+  # их не надо получать отдельно на my.telegram.org.
+  bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: bot_api_server
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_API_ID=2040
+      - TELEGRAM_API_HASH=b18441a1ff607e10a989891a5462e627
+      - TELEGRAM_LOCAL=1
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./bot-api-data:/var/lib/telegram-bot-api
+
+  bot:
+    build: .
+    image: bot-youtube:latest
+    container_name: bot_youtube
+    restart: unless-stopped
+    depends_on:
+      bot-api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow
+      - HOST_DOWNLOADS_PATH=~/bot_YouTube/downloads
+      # Указываем боту работать через локальный API server.
+      - LOCAL_BOT_API_URL=http://bot-api:8081
+    volumes:
+      - ./downloads:/app/downloads
+      # Та же папка, что у bot-api — чтобы бот мог отдавать локальные пути
+      # для очень больших файлов
+      - ./bot-api-data:/var/lib/telegram-bot-api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
