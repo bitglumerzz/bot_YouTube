@@ -1,7 +1,5 @@
 services:
   # Local Bot API server. Поднимает лимит на отправку с 50 МБ до 2 ГБ.
-  # Использует публично известные credentials от Telegram Desktop —
-  # их не надо получать отдельно на my.telegram.org.
   bot-api:
     image: aiogram/telegram-bot-api:latest
     container_name: bot_api_server
@@ -15,6 +13,18 @@ services:
     volumes:
       - ./bot-api-data:/var/lib/telegram-bot-api
 
+  # PO Token Provider — Node.js сервис для решения YouTube anti-bot
+  # JavaScript-челленджей (n-signature и PO Token). Без него yt-dlp
+  # видит только превью-картинки, реальные форматы недоступны.
+  bgutil-pot:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: bgutil_pot_provider
+    restart: unless-stopped
+    init: true
+    # На localhost для отладки — необязательно, бот ходит через docker network
+    ports:
+      - "127.0.0.1:4416:4416"
+
   bot:
     build: .
     image: bot-youtube:latest
@@ -23,6 +33,8 @@ services:
     depends_on:
       bot-api:
         condition: service_started
+      bgutil-pot:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -30,11 +42,30 @@ services:
       - HOST_DOWNLOADS_PATH=~/bot_YouTube/downloads
       # Указываем боту работать через локальный API server.
       - LOCAL_BOT_API_URL=http://bot-api:8081
+      # Whisper для транскрипции. Размер модели — баланс скорость/качество:
+      #   tiny   ~75 МБ  — очень быстро (~5× длит. видео), качество для простой речи
+      #   base   ~150 МБ — быстро (~3×), нормальное качество  ← если small долго
+      #   small  ~500 МБ — средне (~2×), хороший русский
+      #   medium ~1.5 ГБ — медленно (~1×), очень хорошо
+      # Если транскрипция кажется долгой — поменяйте на base или tiny,
+      # перезапустите: docker compose up -d --force-recreate bot
+      - WHISPER_MODEL_SIZE=small
+      # Куда сохраняется загруженная модель Whisper (один раз качается,
+      # дальше живёт в volume и не теряется при перезапуске контейнера)
+      - HF_HOME=/whisper-cache
     volumes:
       - ./downloads:/app/downloads
       # Та же папка, что у bot-api — чтобы бот мог отдавать локальные пути
       # для очень больших файлов
       - ./bot-api-data:/var/lib/telegram-bot-api
+      # Кэш Whisper-модели (~500 МБ для small) — переживает рестарты
+      - ./whisper-cache:/whisper-cache
+      # cookies.txt с YouTube-сессией — обходит бот-детекцию.
+      # Монтируется READ-ONLY чтобы yt-dlp не портил оригинал перезаписями
+      # (это была причина "403 Forbidden" после нескольких успешных запросов).
+      # Бот сам копирует cookies в /tmp перед каждым yt-dlp вызовом, и
+      # yt-dlp пишет в копию а не в оригинал.
+      - ./cookies.txt:/app/cookies.txt:ro
     logging:
       driver: json-file
       options:

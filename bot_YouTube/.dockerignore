@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.gitignore
+.idea/
+.vscode/
+downloads/
+logs/
+*.log
+README.md
+setup.sh
+run.sh

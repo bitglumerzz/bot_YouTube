@@ -1,3 +1,14 @@
 aiogram>=3.4.0,<4.0.0
-yt-dlp>=2024.10.7
+yt-dlp>=2026.5.0  # требуется свежая версия для обхода новой YouTube бот-детекции
 aiofiles>=23.2.1
+# yt-dlp плагины для YouTube anti-bot:
+#   bgutil-ytdlp-pot-provider — генерирует PO Token (ходит в bgutil-pot контейнер)
+#   yt-dlp-ejs                 — решает n-signature challenge через JS runtime
+#                                (Node.js установлен в Dockerfile)
+# Без обоих на современном YouTube (с мая 2026) даже с куками не качается
+# ничего кроме превью-картинок.
+bgutil-ytdlp-pot-provider>=0.5.0
+yt-dlp-ejs
+# Whisper для транскрипции (локально, без API ключей).
+# Тянет CTranslate2 + tokenizers — precompiled wheels есть для Linux/Mac ARM.
+faster-whisper>=1.0.0

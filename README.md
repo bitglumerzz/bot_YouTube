@@ -4,146 +4,121 @@ Telegram-бот для скачивания видео и аудио с YouTube 
 На базе `aiogram 3` + `yt-dlp` + `ffmpeg`. С Local Bot API server'ом
 поддерживает отправку файлов до **2 ГБ** одним куском.
 
-## Поведение
+## Структура
 
-Пришлите боту ссылку YouTube или Instagram → появится меню из двух кнопок:
-
-- **🎬 Видео** — скачивает в mp4 и присылает в Telegram
-- **🎵 MP3 (только звук)** — извлекает аудиодорожку и присылает как MP3
-
-Во время работы бот шлёт прогресс-сообщения: процент скачивания, скорость, размер, оставшееся время и таймер отправки в Telegram.
+```
+bot_YouTube/
+├── bot.py                # код бота
+├── requirements.txt      # python-зависимости
+├── .env.example          # шаблон конфигурации (скопируйте в .env)
+├── Dockerfile            # образ контейнера с ботом
+├── docker-compose.yml    # запуск бота + Local Bot API server
+├── .dockerignore
+├── .gitignore
+├── setup.sh              # установка локально (macOS, без Docker)
+└── run.sh                # запуск локально
+```
 
 ## Запуск через Docker (рекомендуется)
 
 ### Шаг 1. Получить токен бота
 
-Откройте `@BotFather` в Telegram → `/newbot` → задайте имя → скопируйте токен вида `123456789:AAEcMa...`
+Откройте `@BotFather` в Telegram → `/newbot` → задайте имя → получите токен
+вида `123456789:AAEcMa...`
 
-### Шаг 2. Скопировать `.env.example` в `.env`
+### Шаг 2. Получить api_id и api_hash для Local Bot API server
+
+Это нужно один раз, чтобы поднять локальный API сервер и снять лимит 50 МБ.
+
+1. Открыть https://my.telegram.org/auth
+2. Войти по своему номеру (придёт код в Telegram)
+3. Зайти в **API development tools**
+4. **Create new application**: название `MyBot`, остальное любое
+5. Скопировать **api_id** (число) и **api_hash** (32 символа)
+
+### Шаг 3. Заполнить .env и запустить
 
 ```bash
 cd ~/bot_YouTube
 cp .env.example .env
+nano .env                       # впишите BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
+docker compose up -d --build    # сборка и запуск (бот + bot-api сервер)
+docker compose logs -f          # смотреть логи
 ```
 
-### Шаг 3. Вписать BOT_TOKEN в `.env`
-
-**Вариант A — через редактор `nano`** (если привычнее визуально):
-
-```bash
-nano .env
-```
-
-Внутри редактора замените значение после `BOT_TOKEN=` на свой токен. Сохранение: `Ctrl+O`, `Enter`. Выход: `Ctrl+X`.
-
-**Вариант B — одной командой в терминале** (быстрее, без открытия редактора). Замените `ВАШ_ТОКЕН` на токен от BotFather и вставьте всё одним блоком:
-
-```bash
-echo "BOT_TOKEN=ВАШ_ТОКЕН" > .env && chmod 600 .env
-```
-
-Файл `.env` будет полностью перезаписан с одной строкой `BOT_TOKEN=...`. Стрелка `>` (одна) перезаписывает, двойная `>>` бы добавила в конец.
-
-**Вариант C — заменить только токен в существующем `.env`** (если в нём другие строки помимо `BOT_TOKEN=`):
-
-```bash
-sed -i '' 's|^BOT_TOKEN=.*|BOT_TOKEN=ВАШ_НОВЫЙ_ТОКЕН|' .env
-```
-
-(на macOS обязательно `-i ''` с пустыми кавычками, в Linux/WSL — просто `-i`)
-
-**Проверка** (без раскрытия токена в выводе):
-
-```bash
-awk -F= '{print $1 "=" length($2) " символов"}' .env
-```
-
-Должно вывести `BOT_TOKEN=46 символов` — стандартная длина токена от BotFather.
-
-### Шаг 4. Запустить контейнеры
-
-```bash
-docker compose up -d --build
-docker compose logs -f
-```
-
-В логах через ~30 секунд должна появиться строка:
+При первом запуске локальный API сервер инициализируется ~30 секунд. В логах
+бота должна появиться строка:
 
 ```
-INFO - Bot API: локальный сервер http://bot-api:8081
-INFO - Run polling for bot @ваш_бот
+Bot API: локальный сервер http://bot-api:8081 (лимит 2 ГБ)
 ```
 
 После этого пишите боту в Telegram `/start`.
 
-## Управление
+### Управление
 
 ```bash
 docker compose down                    # остановить
-docker compose up -d --force-recreate  # перезапустить с подхватом нового .env
-docker compose logs -f                 # логи в реальном времени
-docker compose logs -f bot             # только логи бота
-docker compose logs -f bot-api         # только логи API сервера
+docker compose up -d --build           # перезапустить с обновлением
+docker compose logs -f bot             # логи только бота
+docker compose logs -f bot-api         # логи только API сервера
 ```
 
-**Важно:** после изменения `.env` нужен `--force-recreate`, обычный `restart` не перечитывает env-файл.
+Скачанные файлы появляются в `~/bot_YouTube/downloads/`.
 
-## Команды бота
+### Как работать без Local Bot API server
 
-`/start`, `/help` — справка.
-`/check` — проверить ссылку и показать меню кнопками.
-`/stats` — состояние очереди скачивания.
-
-Можно просто кинуть боту ссылку без команды — меню появится автоматически.
+Если не хотите получать api_id/api_hash — закомментируйте строку
+`LOCAL_BOT_API_URL=...` в `docker-compose.yml`. Бот будет работать через
+официальный Bot API с лимитом 50 МБ; файлы больше будут резаться на части.
 
 ## Запуск локально без Docker (macOS)
 
 ```bash
 cd ~/bot_YouTube
-bash setup.sh             # ставит Homebrew, ffmpeg, Python venv, зависимости
-echo "BOT_TOKEN=ВАШ_ТОКЕН" > .env
-chmod 600 .env
+bash setup.sh             # ставит Homebrew, ffmpeg, python venv, зависимости
+nano .env                 # впишите BOT_TOKEN
 bash run.sh
 ```
 
-В этом режиме Local Bot API server не запускается — лимит файла 50 МБ (официальный API Telegram).
+В этом режиме Local Bot API server не запускается, лимит — 50 МБ.
 
-## Папка downloads
+## Команды бота
 
-```
-~/bot_YouTube/downloads/
-```
+`/start`, `/help` — справка.
+`/check` — проверить видео и выбрать качество кнопками.
+`/normal`, `/audio`, `/compress`, `/split`, `/ios` — режимы скачивания.
+`/q1080`, `/q720`, `/q480`, `/q360` — фиксированное качество.
+`/test_cookies` — проверка извлечения куки из браузеров.
+`/stats` — состояние очереди.
 
-Сюда yt-dlp кладёт скачиваемые файлы. После успешной отправки в Telegram файлы автоматически удаляются. Если папка разрастается — почистите вручную:
+Можно просто кинуть боту ссылку — он сам покажет inline-меню выбора качества.
 
-```bash
-rm ~/bot_YouTube/downloads/*
-```
+## Что бот делает с видео
 
-## Бэкап проекта
-
-```bash
-cd ~ && tar \
-  --exclude='bot_YouTube/downloads' \
-  --exclude='bot_YouTube/bot-api-data' \
-  --exclude='bot_YouTube/venv' \
-  --exclude='bot_YouTube/__pycache__' \
-  --exclude='bot_YouTube/*.log' \
-  -czf "bot_YouTube_backup_$(date +%Y%m%d_%H%M%S).tar.gz" bot_YouTube
-```
-
-Создаст архив с датой/временем в `~`. Восстановление: `tar -xzf bot_YouTube_backup_ВРЕМЯ.tar.gz`.
+1. Скачивает с YouTube/Instagram через `yt-dlp` (с прогресс-баром)
+2. Применяет `ffmpeg -movflags +faststart` — moov atom переезжает в начало,
+   плеер Telegram сразу начинает воспроизведение без буферизации в конец
+3. Через `ffprobe` берёт реальные `width`/`height`/`duration` — Telegram
+   рисует плеер в правильном aspect ratio (без растяжения)
+4. Отправляет с прогресс-индикатором времени и размера
 
 ## Траблшутинг
 
-**Бот падает с `BOT_TOKEN не задан`** — `.env` пустой или нет файла. Сделайте Шаг 3.
+**Бот падает с `BOT_TOKEN не задан`** — забыли создать `.env` или вписать токен.
 
-**`TelegramUnauthorizedError: Unauthorized`** — токен невалиден. Зайдите в `@BotFather` → `/mybots` → выбрать бота → API Token → Revoke current token → получите новый и обновите `.env`.
+**`ffmpeg: not found` в native-режиме** — `brew install ffmpeg` (в Docker уже есть).
 
-**Бот не отвечает на сообщения** — проверьте, что вы пишете именно тому боту, чей username в логах: `docker compose logs --tail 5 bot | grep "Run polling"`. Может быть несколько ботов от BotFather'а.
+**Local Bot API контейнер падает с `api_id is empty`** — забыли заполнить
+`TELEGRAM_API_ID` / `TELEGRAM_API_HASH` в `.env`. См. шаг 2 выше.
 
-**Local Bot API не стартует** — посмотрите `docker compose logs bot-api`. Чаще всего проблема с правами на папку `bot-api-data/`. Удалите её и пересоздайте: `rm -rf bot-api-data && docker compose up -d --force-recreate`.
+**Instagram возвращает ошибку (только в native-режиме)** — закройте все окна
+Chrome/Firefox перед скачиванием. В Docker используйте `cookies.txt`.
 
-**Instagram возвращает ошибку** — закройте все окна Chrome/Firefox перед скачиванием (они блокируют файл базы куки).
+**Файл всё равно >2 ГБ** — сильно длинное 4K-видео. Используйте качество ниже.
 
-**Видео приходит, но плеер Telegram замирает** — это значит yt-dlp скачал в кодеке (VP9 / AV1), который Telegram не варит. Откройте файл напрямую с диска: `open ~/bot_YouTube/downloads/`.
+**Видео приходит, но плеер не начинает играть сразу** — проверьте логи на
+строку `+faststart применён`. Если её нет, ffmpeg-перепаковка не сработала.
+
+**Бот молчит после нажатия кнопки качества** — посмотрите `docker compose logs -f bot`,
+скорее всего yt-dlp упал на конкретной ссылке.

@@ -1,8 +1,10 @@
-# Секреты
+# Секреты — НИКОГДА не коммитить
 .env
 .env.save
 .env.bak
 *.env.swp
+# YouTube cookies — это сессия вашего аккаунта
+cookies.txt
 
 # Кэши и виртуалки
 venv/
@@ -13,10 +15,12 @@ __pycache__/
 # Артефакты бота
 downloads/
 bot-api-data/
+whisper-cache/
+
+# Логи
 *.log
+
+# OS / IDE
 .DS_Store
 .idea/
 .vscode/
-
-# Дубль папки (если опять скопируется)
-bot_YouTube/

@@ -1,0 +1,20 @@
+services:
+  bot:
+    build: .
+    image: bot-youtube:latest
+    container_name: bot_youtube
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Можно переопределить часовой пояс
+      - TZ=Europe/Moscow
+    volumes:
+      # Скачанные файлы видны хосту и не теряются между перезапусками
+      - ./downloads:/app/downloads
+    # Здоровый дефолт по логам — иначе диск заполнится за месяц аптайма
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
